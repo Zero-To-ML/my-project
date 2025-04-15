@@ -1,0 +1,183 @@
+LIBRARIAN DASHBOARD (library_app.py lines 150-200)
+
+def create_librarian_dashboard(self):
+    self.dashboard_frame = ctk.CTkFrame(self.main_frame)
+    self.dashboard_frame.grid(row=0, column=0, padx=20, pady=20, sticky="nsew")
+    
+    # Title
+    title_label = ctk.CTkLabel(self.dashboard_frame, text="Librarian Dashboard", 
+                              font=ctk.CTkFont(size=20, weight="bold"))
+    title_label.grid(row=0, column=0, columnspan=2, pady=20)
+    
+    # Buttons for different operations
+    buttons = [
+        ("Add Book", self.add_book),
+        ("Add Member", self.add_member),
+        ("Issue Book", self.issue_book),
+        ("Return Book", self.return_book),
+        ("View Books", self.view_books),
+        ("View Members", self.view_members),
+        ("View Fines", self.view_fines),
+        ("Logout", self.logout)
+    ]
+    
+    for i, (text, command) in enumerate(buttons):
+        btn = ctk.CTkButton(self.dashboard_frame, text=text, command=command)
+        btn.grid(row=i+1, column=0, padx=10, pady=10, sticky="ew")
+
+ADD BOOK (library_app.py lines 300-350)
+
+def add_book(self):
+    # Create a new window for adding a book
+    add_book_window = ctk.CTkToplevel(self.window)
+    add_book_window.title("Add New Book")
+    add_book_window.geometry("400x500")
+    
+    # Book details
+    ctk.CTkLabel(add_book_window, text="ISBN:").grid(row=0, column=0, padx=10, pady=5)
+    isbn_entry = ctk.CTkEntry(add_book_window)
+    isbn_entry.grid(row=0, column=1, padx=10, pady=5)
+    
+    ctk.CTkLabel(add_book_window, text="Title:").grid(row=1, column=0, padx=10, pady=5)
+    title_entry = ctk.CTkEntry(add_book_window)
+    title_entry.grid(row=1, column=1, padx=10, pady=5)
+    
+    ctk.CTkLabel(add_book_window, text="Author:").grid(row=2, column=0, padx=10, pady=5)
+    author_entry = ctk.CTkEntry(add_book_window)
+    author_entry.grid(row=2, column=1, padx=10, pady=5)
+    
+    ctk.CTkLabel(add_book_window, text="Genre:").grid(row=3, column=0, padx=10, pady=5)
+    genre_entry = ctk.CTkEntry(add_book_window)
+    genre_entry.grid(row=3, column=1, padx=10, pady=5)
+    
+    ctk.CTkLabel(add_book_window, text="Price:").grid(row=4, column=0, padx=10, pady=5)
+    price_entry = ctk.CTkEntry(add_book_window)
+    price_entry.grid(row=4, column=1, padx=10, pady=5)
+    
+    def submit():
+        try:
+            # Validate inputs
+            if not all([isbn_entry.get(), title_entry.get(), author_entry.get(), 
+                       genre_entry.get(), price_entry.get()]):
+                raise Exception("All fields are required")
+            
+            try:
+                price = float(price_entry.get())
+                if price <= 0:
+                    raise ValueError
+            except ValueError:
+                raise Exception("Price must be a positive number")
+            
+            query = """
+            INSERT INTO BOOKS (isbn, title, author, genre, price, status, librarianid)
+            VALUES (:1, :2, :3, :4, :5, 'available', :6)
+            """
+            params = (
+                isbn_entry.get(),
+                title_entry.get(),
+                author_entry.get(),
+                genre_entry.get(),
+                price,
+                self.current_user
+            )
+            self.db.execute_query(query, params)
+            
+            messagebox.showinfo("Success", "Book added successfully!")
+            add_book_window.destroy()
+            self.refresh_database()
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to add book: {str(e)}")
+    
+    submit_button = ctk.CTkButton(add_book_window, text="Add Book", command=submit)
+    submit_button.grid(row=5, column=0, columnspan=2, pady=20)
+
+ISSUE BOOK (library_app.py lines 350-400)
+
+def issue_book(self):
+    # Create a new window for issuing a book
+    issue_window = ctk.CTkToplevel(self.window)
+    issue_window.title("Issue Book")
+    issue_window.geometry("400x500")
+    
+    # Book selection
+    ctk.CTkLabel(issue_window, text="Select Book:").grid(row=0, column=0, padx=10, pady=5)
+    book_var = ctk.StringVar()
+    book_dropdown = ctk.CTkOptionMenu(issue_window, variable=book_var)
+    book_dropdown.grid(row=0, column=1, padx=10, pady=5)
+    
+    # Member selection
+    ctk.CTkLabel(issue_window, text="Select Member:").grid(row=1, column=0, padx=10, pady=5)
+    member_var = ctk.StringVar()
+    member_dropdown = ctk.CTkOptionMenu(issue_window, variable=member_var)
+    member_dropdown.grid(row=1, column=1, padx=10, pady=5)
+    
+    # Issue date input
+    ctk.CTkLabel(issue_window, text="Issue Date (YYYY-MM-DD):").grid(row=2, column=0, padx=10, pady=5)
+    issue_date_entry = ctk.CTkEntry(issue_window)
+    issue_date_entry.grid(row=2, column=1, padx=10, pady=5)
+    
+    # Due date input
+    ctk.CTkLabel(issue_window, text="Due Date (YYYY-MM-DD):").grid(row=3, column=0, padx=10, pady=5)
+    due_date_entry = ctk.CTkEntry(issue_window)
+    due_date_entry.grid(row=3, column=1, padx=10, pady=5)
+    
+    def load_books():
+        try:
+            query = "SELECT isbn, title FROM BOOKS WHERE status = 'available'"
+            cursor = self.db.execute_query(query)
+            books = [f"{row[0]} - {row[1]}" for row in cursor.fetchall()]
+            book_dropdown.configure(values=books)
+            if books:
+                book_var.set(books[0])
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to load books: {str(e)}")
+    
+    def load_members():
+        try:
+            query = "SELECT memberid, name FROM MEMBER"
+            cursor = self.db.execute_query(query)
+            members = [f"{row[0]} - {row[1]}" for row in cursor.fetchall()]
+            member_dropdown.configure(values=members)
+            if members:
+                member_var.set(members[0])
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to load members: {str(e)}")
+    
+    def submit():
+        try:
+            isbn = book_var.get().split(" - ")[0]
+            member_id = member_var.get().split(" - ")[0]
+            issue_date = issue_date_entry.get()
+            due_date = due_date_entry.get()
+            
+            # Validate dates
+            try:
+                datetime.strptime(issue_date, '%Y-%m-%d')
+                datetime.strptime(due_date, '%Y-%m-%d')
+            except ValueError:
+                raise Exception("Invalid date format. Please use YYYY-MM-DD")
+            
+            # Generate a simple issue ID
+            issue_id = f"ISSUE{int(datetime.now().timestamp())}"
+            
+            query = """
+            BEGIN
+                issue_book(:1, :2, :3, TO_DATE(:4, 'YYYY-MM-DD'), TO_DATE(:5, 'YYYY-MM-DD'));
+            END;
+            """
+            params = (issue_id, member_id, isbn, issue_date, due_date)
+            self.db.execute_query(query, params)
+            
+            messagebox.showinfo("Success", f"Book issued successfully!\nIssue ID: {issue_id}")
+            issue_window.destroy()
+            self.refresh_database()
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to issue book: {str(e)}")
+    
+    load_books()
+    load_members()
+    
+    submit_button = ctk.CTkButton(issue_window, text="Issue Book", command=submit)
+    submit_button.grid(row=4, column=0, columnspan=2, pady=20) 

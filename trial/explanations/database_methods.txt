@@ -1,0 +1,201 @@
+DATABASE CONNECTION CLASS (library_app.py lines 30-60)
+
+class DatabaseConnection:
+    def __init__(self):
+        self.connection = None
+        self.cursor = None
+        logger.info("DatabaseConnection initialized")
+        
+    def connect(self, username, password):
+        try:
+            if self.connection:
+                self.connection.close()
+            
+            self.connection = oracledb.connect(
+                user="system",
+                password="123RA*ra",
+                dsn="localhost:1521/XE"
+            )
+            self.cursor = self.connection.cursor()
+            logger.info("Successfully connected to Oracle Database")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to connect to database: {str(e)}")
+            return False
+            
+    def execute_query(self, query, params=None):
+        try:
+            logger.debug(f"Executing query: {query}")
+            if params:
+                logger.debug(f"With parameters: {params}")
+            
+            cursor = self.connection.cursor()
+            if params:
+                cursor.execute(query, params)
+            else:
+                cursor.execute(query)
+            
+            if not query.strip().upper().startswith("SELECT"):
+                self.connection.commit()
+            
+            return cursor
+        except Exception as e:
+            logger.error(f"Error executing query: {str(e)}")
+            self.connection.rollback()
+            raise e
+            
+    def set_auto_commit(self, auto_commit):
+        if self.connection:
+            self.connection.autocommit = auto_commit
+            logger.debug(f"Setting auto-commit to {auto_commit}")
+            
+    def close(self):
+        if self.connection:
+            self.connection.close()
+            logger.info("Database connection closed")
+
+DATABASE REFRESH METHODS (library_app.py lines 900-950)
+
+def refresh_database(self):
+    try:
+        # Refresh books view if open
+        if hasattr(self, 'view_books_window') and self.view_books_window.winfo_exists():
+            self.refresh_view_books()
+            
+        # Refresh members view if open
+        if hasattr(self, 'view_members_window') and self.view_members_window.winfo_exists():
+            self.refresh_view_members()
+            
+        # Refresh issued books view if open
+        if hasattr(self, 'view_issued_books_window') and self.view_issued_books_window.winfo_exists():
+            self.refresh_view_issued_books()
+            
+        # Refresh fines view if open
+        if hasattr(self, 'view_fines_window') and self.view_fines_window.winfo_exists():
+            self.refresh_view_fines()
+            
+    except Exception as e:
+        logger.error(f"Error refreshing database views: {str(e)}")
+
+def refresh_view_books(self, tree):
+    try:
+        # Clear existing items
+        for item in tree.get_children():
+            tree.delete(item)
+        
+        # Get updated books
+        query = "SELECT isbn, title, author, genre, price, status FROM BOOKS ORDER BY title"
+        cursor = self.db.execute_query(query)
+        books = cursor.fetchall()
+        
+        for book in books:
+            tree.insert("", "end", values=book)
+            
+    except Exception as e:
+        logger.error(f"Error refreshing books view: {str(e)}")
+        messagebox.showerror("Error", f"Failed to refresh books: {str(e)}")
+
+def refresh_view_members(self, tree):
+    try:
+        # Clear existing items
+        for item in tree.get_children():
+            tree.delete(item)
+        
+        # Get updated members
+        query = "SELECT memberid, name, phoneno FROM MEMBER ORDER BY name"
+        cursor = self.db.execute_query(query)
+        members = cursor.fetchall()
+        
+        for member in members:
+            tree.insert("", "end", values=member)
+            
+    except Exception as e:
+        logger.error(f"Error refreshing members view: {str(e)}")
+        messagebox.showerror("Error", f"Failed to refresh members: {str(e)}")
+
+def refresh_view_issued_books(self, tree):
+    try:
+        # Clear existing items
+        for item in tree.get_children():
+            tree.delete(item)
+        
+        # Get updated issued books
+        query = """
+        SELECT i.issueid, b.title, i.issuedate, i.duedate, i.returndate
+        FROM ISSUED_BOOKS i
+        JOIN BOOKS b ON i.isbn = b.isbn
+        WHERE i.memberid = :1
+        ORDER BY i.issuedate DESC
+        """
+        cursor = self.db.execute_query(query, [self.current_user])
+        issued_books = cursor.fetchall()
+        
+        for book in issued_books:
+            tree.insert("", "end", values=book)
+            
+    except Exception as e:
+        logger.error(f"Error refreshing issued books view: {str(e)}")
+        messagebox.showerror("Error", f"Failed to refresh issued books: {str(e)}")
+
+def refresh_view_fines(self, tree):
+    try:
+        # Clear existing items
+        for item in tree.get_children():
+            tree.delete(item)
+        
+        # Get updated fines
+        query = """
+        SELECT f.fineid, b.title, f.amount, f.paymentstatus
+        FROM FINES f
+        JOIN ISSUED_BOOKS i ON f.issueid = i.issueid
+        JOIN BOOKS b ON i.isbn = b.isbn
+        WHERE i.memberid = :1
+        ORDER BY f.fineid DESC
+        """
+        cursor = self.db.execute_query(query, [self.current_user])
+        fines = cursor.fetchall()
+        
+        for fine in fines:
+            tree.insert("", "end", values=fine)
+            
+    except Exception as e:
+        logger.error(f"Error refreshing fines view: {str(e)}")
+        messagebox.showerror("Error", f"Failed to refresh fines: {str(e)}")
+
+DATABASE UTILITY FUNCTIONS (library_app.py lines 1100-1150)
+
+def connect_to_db():
+    try:
+        connection = oracledb.connect(
+            user="system",
+            password="123RA*ra",
+            dsn="localhost:1521/XE"
+        )
+        print("Connected to Oracle Database")
+        return connection
+    except oracledb.Error as error:
+        print(f"Error connecting to Oracle Database: {error}")
+        sys.exit(1)
+
+def execute_sql(connection, sql, params=None):
+    try:
+        cursor = connection.cursor()
+        if params:
+            cursor.execute(sql, params)
+        else:
+            cursor.execute(sql)
+        
+        # If it's a SELECT statement, return the results
+        if sql.strip().upper().startswith("SELECT"):
+            return cursor.fetchall()
+        
+        # For other statements, commit the transaction
+        connection.commit()
+        return None
+    except oracledb.Error as error:
+        print(f"Error executing SQL: {error}")
+        connection.rollback()
+        return None
+    finally:
+        if 'cursor' in locals():
+            cursor.close() 
