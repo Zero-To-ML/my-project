@@ -121,11 +121,4 @@ For issues and support, please check the explanations directory for detailed doc
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-### Default Login Credentials
-- Username: admin
-- Password: [Set your own password]
-
-### Member Login
-- Use your member ID and password 
+This project is licensed under the MIT License - see the LICENSE file for details. 

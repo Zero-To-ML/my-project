@@ -1,6 +1,6 @@
 import customtkinter as ctk
 from tkinter import messagebox, ttk
-import mysql.connector
+import oracledb
 import uuid
 from datetime import datetime, timedelta
 import logging
@@ -9,15 +9,8 @@ import sys
 import random
 import string
 
-# Import configuration
-try:
-    from config import DB_CONFIG, APP_CONFIG, ADMIN_CREDENTIALS
-except ImportError:
-    print("Please create a config.py file from config.example.py")
-    sys.exit(1)
-
 # Set up logging
-logging.basicConfig(level=getattr(logging, APP_CONFIG['log_level']))
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 class DatabaseConnection:
@@ -28,16 +21,20 @@ class DatabaseConnection:
         
     def connect(self, username, password):
         try:
-            self.connection = mysql.connector.connect(
-                host=DB_CONFIG['host'],
-                user=username,
-                password=password,
-                database=DB_CONFIG['database']
+            if self.connection:
+                self.connection.close()
+            
+            self.connection = oracledb.connect(
+                user="system",
+                password="123RA*ra",
+                dsn="localhost:1521/XE"
             )
             self.cursor = self.connection.cursor()
+            logger.info("Successfully connected to Oracle Database")
             return True
-        except mysql.connector.Error as err:
-            raise DatabaseConnectionError(f"Failed to connect to database: {err}")
+        except Exception as e:
+            logger.error(f"Failed to connect to database: {str(e)}")
+            return False
             
     def execute_query(self, query, params=None):
         """Execute a SQL query and return the cursor"""
@@ -136,7 +133,7 @@ class LibraryApp:
         
         try:
             # First connect as system to verify user existence
-            if not self.db.connect("root", "YOUR_DB_PASSWORD"):
+            if not self.db.connect("system", "123RA*ra"):
                 raise Exception("Failed to connect to database")
             
             if user_type == "Librarian":
@@ -985,7 +982,7 @@ class LibraryApp:
         try:
             logger.debug("Refreshing database connection")
             # Reconnect using system credentials
-            if not self.db.connect("root", "YOUR_DB_PASSWORD"):
+            if not self.db.connect("system", "123RA*ra"):
                 raise Exception("Failed to reconnect to database")
             
             # Update any open windows with new data

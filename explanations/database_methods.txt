@@ -8,16 +8,20 @@ class DatabaseConnection:
         
     def connect(self, username, password):
         try:
-            self.connection = mysql.connector.connect(
-                host="localhost",
-                user=username,
-                password=password,
-                database="library"
+            if self.connection:
+                self.connection.close()
+            
+            self.connection = oracledb.connect(
+                user="system",
+                password="123RA*ra",
+                dsn="localhost:1521/XE"
             )
             self.cursor = self.connection.cursor()
+            logger.info("Successfully connected to Oracle Database")
             return True
-        except mysql.connector.Error as err:
-            raise DatabaseConnectionError(f"Failed to connect to database: {err}")
+        except Exception as e:
+            logger.error(f"Failed to connect to database: {str(e)}")
+            return False
             
     def execute_query(self, query, params=None):
         try:
